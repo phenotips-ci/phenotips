@@ -358,6 +358,7 @@ document.observe('xwiki:dom:loading', function() {
       content.select('input[type=radio]').invoke('observe', 'click', updateMatchCounter);
       content.select('input[type=checkbox]').invoke('observe', 'click', updateMatchCounter);
       content.select('input[name=external_id]').invoke('observe', 'keyup', updateMatchCounter);
+      content.select('input[type=text]').invoke('observe', 'keyup', updateMatchCounter);
     }
   };
   var exportTools = $$('.phenotips_export_tool');
