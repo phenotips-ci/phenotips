@@ -27,6 +27,10 @@
   </parent>
   <artifactId>patient-data-api</artifactId>
   <name>PhenoTips - Patient data - Java APIs</name>
+  
+  <properties>
+    <coverage.instructionRatio>0.99</coverage.instructionRatio>
+  </properties>
 
   <dependencies>
     <dependency>
