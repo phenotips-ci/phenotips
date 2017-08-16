@@ -561,59 +561,36 @@ document.observe('xwiki:dom:loaded', function()
     // go : namespace:
     var suggestionsMapping = {
         "hpo" : {
-            script: new XWiki.Document('SolrService', 'PhenoTips').getURL("get") + "?",
-            queryProcessor: typeof(PhenoTips.widgets.SolrQueryProcessor) == "undefined" ? null : new PhenoTips.widgets.SolrQueryProcessor({}, {}),
-            varname: "q",
-            noresults: "No matching terms",
-            json: true,
+            script: XWiki.contextPath + "/rest/vocabularies/hpo/suggest?",
+            noresults: "$escapetool.javascript($services.localization.render('phenotips.DBWebHomeSheet.noResults'))",
             resultsParameter : "rows",
-            resultId : "id",
             resultValue : "name",
             resultAltName: "synonym",
             resultCategory : "term_category",
             resultInfo : {},
             tooltip: 'phenotype-info',
-            enableHierarchy: true,
-            resultParent : "is_a",
-            fadeOnClear : false,
-            timeout : 30000,
-            parentContainer : null
+            resultParent : "is_a"
         },
         "omim" : {
-            script: new XWiki.Document('SolrService', 'PhenoTips').getURL("get", "vocabulary=omim") + "&amp;",
-            varname: "q",
-            noresults: "No matching terms",
-            json: true,
+            script: XWiki.contextPath + "/rest/vocabularies/omim/suggest?",
+            noresults: "$escapetool.javascript($services.localization.render('phenotips.DBWebHomeSheet.noResults'))",
             resultsParameter : "rows",
-            resultId : "id",
             resultValue : "name",
             resultInfo : {},
-            tooltip: 'omim-disease-info',
-            enableHierarchy: false,
-            fadeOnClear : false,
-            timeout : 30000,
-            parentContainer : null
+            tooltip: 'omim-disease-info'
         },
         "ordo" : {
-            script: new XWiki.Document('SolrService', 'PhenoTips').getURL("get", "vocabulary=ordo") + "&amp;",
-            varname: "q",
-            noresults: "No matching terms",
-            json: true,
+            script: XWiki.contextPath + "/rest/vocabularies/ordo/suggest?",
+            noresults: "$escapetool.javascript($services.localization.render('phenotips.DBWebHomeSheet.noResults'))",
             resultsParameter : "rows",
-            resultId : "id",
             resultValue : "name",
-            tooltip: 'ordo-disease-info',
-            enableHierarchy: false,
-            fadeOnClear : false,
-            timeout : 30000,
-            parentContainer : null
+            tooltip: 'ordo-disease-info'
         }
     };
     var pickerSpecialClassOptions = {
       'defaultPicker' : {},
       'quickSearch' : {
                   'showKey' : false,
-                  'showTooltip' : false,
                   'showDeleteTool' : false,
                   'enableSort' : false,
                   'showClearTool' : false,
@@ -625,8 +602,6 @@ document.observe('xwiki:dom:loaded', function()
                   'onItemAdded' : restoreCategory
                 },
       'generateShortList' : {
-                  'showKey' : true,
-                  'showTooltip' : false,
                   'showDeleteTool' : false,
                   'enableSort' : false,
                   'showClearTool' : false,
@@ -634,7 +609,6 @@ document.observe('xwiki:dom:loaded', function()
                 },
       'generateCheckboxes' : {
                   'showKey' : false,
-                  'showTooltip' : false,
                   'showDeleteTool' : false,
                   'enableSort' : false,
                   'showClearTool' : false,
@@ -1066,12 +1040,6 @@ document.observe('xwiki:dom:loaded', function()
                 item._restriction = null;
               }
             }
-            if (item._customOptions.queryProcessor &amp;&amp; item._restriction) {
-              item._customOptions.queryProcessor = Object.clone(item._customOptions.queryProcessor);
-              item._customOptions.queryProcessor.restriction = {
-                'term_category' : item._restriction
-              }
-            }
             // Create the Suggest.
             item._suggest = new PhenoTips.widgets.Suggest(item, item._customOptions);
             if (item.hasClassName('multi') &amp;&amp; typeof(PhenoTips.widgets.SuggestPicker) != "undefined") {
@@ -1265,7 +1233,7 @@ document.observe('xwiki:dom:loaded', function()
             }
 
             // Info buttons behavior
-            item.up('.term-entry').insert(' ').insert(new Element('span', {'class' : 'fa fa-info-circle phenotype-info xHelpButton', title : item.value}));
+            item.up('.term-entry').insert(' ').insert(new Element('span', {'class' : 'fa fa-info-circle phenotype-info xHelpButton', title : item.value, 'data-source' : sugestedInput.id}));
 
             // ------------------------------------------------------------------------
             // Add  y/n selection
@@ -1502,7 +1470,7 @@ document.observe('xwiki:dom:loaded', function()
     initialize : function(dataTable) {
       /** Measurement evaluation service */
       this.measurementsService = new XWiki.Document('PatientToolsService', 'PhenoTips').getURL('get');
-      this.solarService = new XWiki.Document('SolrService', 'PhenoTips').getURL("get");
+      this.solrService = XWiki.contextPath + "/rest/vocabularies/hpo/suggest";
 
       this.dataTable = dataTable;
       this.dataTable._processor = this;
@@ -1868,7 +1836,7 @@ document.observe('xwiki:dom:loaded', function()
         if (!suggestWidget) {
            return null;
         }
-        searchURL = this.solarService + "?q=" + id;
+        searchURL = this.solrService + "?input=" + id;
         new Ajax.Request(searchURL, {
           method: 'get',
           onSuccess: function(transport) {
@@ -2388,6 +2356,7 @@ document.observe('xwiki:dom:loaded', function()
         'searchTerms' : $('panelsSearchTerms'),
         'searchTermsInput' : $('panelsSearchTermsInput'),
         'searchTermIDsInput' : $('panelsSearchTermIDsInput'),
+        'rejectedGeneIDsInput' : $('panelsRejectedGeneIDsInput'),
         'containersInitialized' : function(searchBox) {
           var containersInit;
           if (searchBox.searchTerms &amp;&amp; searchBox.searchTermsInput &amp;&amp; searchBox.genePanels.target) {
@@ -2406,7 +2375,7 @@ document.observe('xwiki:dom:loaded', function()
           return data.script;
         },
         'submitAjaxRequest' : function(searchBox, data, queryString, parameters) {
-          searchBox._builder.panelsDisplay.paginate(parameters, 1, 10);
+          searchBox._builder.panelsDisplay.paginate(parameters, 10);
         },
         'genePanels' : {
           'script' : XWiki.contextPath + '/rest/suggested-gene-panels',
@@ -2429,7 +2398,17 @@ document.observe('xwiki:dom:loaded', function()
         _this._builder.searchTermIDsInput.value += term.__key + ' ';
       });
 
-      if (this._builder.searchTermsInput.value != prevValue) {
+      var prevGenes = '';
+      if (this._builder.rejectedGeneIDsInput) {
+        prevGenes = this._builder.rejectedGeneIDsInput.value;
+        this._builder.rejectedGeneIDsInput.value = '';
+        for (var gene in this._builder.genes) {
+          (this._builder.genes[gene].status == 'rejected') &amp;&amp; (_this._builder.rejectedGeneIDsInput.value += gene + ' ');
+        };
+      }
+
+      if (this._builder.searchTermsInput.value != prevValue || (this._builder.rejectedGeneIDsInput
+        &amp;&amp; this._builder.rejectedGeneIDsInput.value != prevGenes)) {
         _this._builder.firePhenotypeChanged({phenotype: _this._builder.cache});
         _this._builder.doSearch(_this);
       }
@@ -2598,6 +2577,10 @@ document.observe('xwiki:dom:loaded', function()
         }
       }
 
+      if (this._builder.genes) {
+        this.addRejectedGeneParams(parameters);
+      }
+
       if (page !== undefined) {
         parameters['page'] = page;
       }
@@ -2610,6 +2593,16 @@ document.observe('xwiki:dom:loaded', function()
         data.__pendingRequest = undefined;
         _this._builder.submitAjaxRequest(_this, data, queryString, parameters);
       }.bind(this).delay(searchDelay);
+    },
+
+    addRejectedGeneParams : function(parameters) {
+      var geneList = [];
+        parameters['rejected_gene'] = geneList;
+        for (var g in this._builder.genes) {
+          if ('rejected' == this._builder.genes[g].status) {
+            geneList.push("HGNC:" + this._builder.genes[g].key);
+          }
+        }
     },
 
     initialize : function(searchBox) {
@@ -2625,7 +2618,20 @@ document.observe('xwiki:dom:loaded', function()
 
       this.attachObservers();
     },
-        
+
+    initGeneCache : function() {
+      var _this = this;
+      this._builder.rejectedGeneIDsInput.value = '';
+      var genesSummary = $('panels-genes-summary');
+      this._builder.genes = {};
+      if (genesSummary) {
+        var genes = JSON.parse(genesSummary.value);
+        genes.each(function (g) {
+          _this._builder.genes[g.key] = g;
+        });
+      }
+    },
+
     attachObservers : function() {
       var _this = this;
       document.observe('phenotype:selected', function(event) {
@@ -2685,8 +2691,31 @@ document.observe('xwiki:dom:loaded', function()
             _this._builder.cache.all[p.key] = p;
             _this._builder.cache.displayed[p.key] = true;
           });
+          _this._builder.rejectedGeneIDsInput &amp;&amp; _this.initGeneCache();
           _this.updateDefaultSearchTerms();
         }
+      });
+
+      document.observe('gene:updated', function(event) {
+        var key = event.memo &amp;&amp; event.memo.key;
+        key &amp;&amp; (_this._builder.genes[key] = event.memo);
+        _this.updateDefaultSearchTerms();
+      });
+
+      document.observe('gene:removed', function(event) {
+        var key = event.memo &amp;&amp; event.memo.key;
+        key &amp;&amp; (delete _this._builder.genes[key]);
+        _this.updateDefaultSearchTerms();
+      });
+
+      document.observe('gene:replaced', function(event) {
+        if (!event.memo) {return;}
+        var delete_key = event.memo.delete_key;
+        var geneKey = event.memo.key;
+        var geneStatus = event.memo.status;
+        delete_key &amp;&amp; (delete _this._builder.genes[delete_key]);
+        geneKey &amp;&amp; geneStatus &amp;&amp; (_this._builder.genes[geneKey] = {'key' : geneKey, 'status' : geneStatus})
+        _this.updateDefaultSearchTerms();
       });
 
       if (this._builder.customSearchTermsInput) {
@@ -4670,134 +4699,6 @@ input[type="checkbox"] + .LV_validation_message {
     </property>
     <property>
       <parse>1</parse>
-    </property>
-    <property>
-      <use>onDemand</use>
-    </property>
-  </object>
-  <object>
-    <name>PhenoTips.PatientSheetCode</name>
-    <number>5</number>
-    <className>XWiki.StyleSheetExtension</className>
-    <guid>c96d593e-478b-4ffa-a2ea-661c4a97908b</guid>
-    <class>
-      <name>XWiki.StyleSheetExtension</name>
-      <customClass/>
-      <customMapping/>
-      <defaultViewSheet/>
-      <defaultEditSheet/>
-      <defaultWeb/>
-      <nameField/>
-      <validationScript/>
-      <cache>
-        <cache>0</cache>
-        <disabled>0</disabled>
-        <displayType>select</displayType>
-        <multiSelect>0</multiSelect>
-        <name>cache</name>
-        <number>5</number>
-        <prettyName>Caching policy</prettyName>
-        <relationalStorage>0</relationalStorage>
-        <separator> </separator>
-        <separators>|, </separators>
-        <size>1</size>
-        <unmodifiable>0</unmodifiable>
-        <values>long|short|default|forbid</values>
-        <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
-      </cache>
-      <code>
-        <disabled>0</disabled>
-        <name>code</name>
-        <number>2</number>
-        <prettyName>Code</prettyName>
-        <rows>20</rows>
-        <size>50</size>
-        <unmodifiable>0</unmodifiable>
-        <classType>com.xpn.xwiki.objects.classes.TextAreaClass</classType>
-      </code>
-      <contentType>
-        <cache>0</cache>
-        <disabled>0</disabled>
-        <displayType>select</displayType>
-        <multiSelect>0</multiSelect>
-        <name>contentType</name>
-        <number>6</number>
-        <prettyName>Content Type</prettyName>
-        <relationalStorage>0</relationalStorage>
-        <separator> </separator>
-        <separators>|, </separators>
-        <size>1</size>
-        <unmodifiable>0</unmodifiable>
-        <values>CSS|LESS</values>
-        <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
-      </contentType>
-      <name>
-        <disabled>0</disabled>
-        <name>name</name>
-        <number>1</number>
-        <prettyName>Name</prettyName>
-        <size>30</size>
-        <unmodifiable>0</unmodifiable>
-        <classType>com.xpn.xwiki.objects.classes.StringClass</classType>
-      </name>
-      <parse>
-        <disabled>0</disabled>
-        <displayFormType>select</displayFormType>
-        <displayType>yesno</displayType>
-        <name>parse</name>
-        <number>4</number>
-        <prettyName>Parse content</prettyName>
-        <unmodifiable>0</unmodifiable>
-        <classType>com.xpn.xwiki.objects.classes.BooleanClass</classType>
-      </parse>
-      <use>
-        <cache>0</cache>
-        <disabled>0</disabled>
-        <displayType>select</displayType>
-        <multiSelect>0</multiSelect>
-        <name>use</name>
-        <number>3</number>
-        <prettyName>Use this extension</prettyName>
-        <relationalStorage>0</relationalStorage>
-        <separator> </separator>
-        <separators>|, </separators>
-        <size>1</size>
-        <unmodifiable>0</unmodifiable>
-        <values>currentPage|onDemand|always</values>
-        <classType>com.xpn.xwiki.objects.classes.StaticListClass</classType>
-      </use>
-    </class>
-    <property>
-      <cache>long</cache>
-    </property>
-    <property>
-      <code>
-.gene-panels-row {
-  font-weight: bold;
-  font-size: .85em !important;
-  margin: .5em auto !important;
-}
-.gene-panels-row-features dt {
-  font-weight: normal;
-  font-size: .85em;
-  margin: 0 auto;
-}
-#genePanelsExport {
-  font-size: .65em;
-}
-.gene-panels-search-box h3 .xTooltip {
-  font-size: .8em;
-  text-transform: none;
-}</code>
-    </property>
-    <property>
-      <contentType>CSS</contentType>
-    </property>
-    <property>
-      <name>Instant Gene Search</name>
-    </property>
-    <property>
-      <parse>0</parse>
     </property>
     <property>
       <use>onDemand</use>

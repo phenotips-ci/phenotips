@@ -46,19 +46,22 @@ public interface GenePanelsResource
      * Retrieves a JSON representation of genes associated with provided terms and counts for each gene. The following
      * request parameters are used:
      * <dl>
-     * <dt>presentTerms</dt>
+     * <dt>present-term</dt>
      * <dd>a list of term IDs that are observed to be present (e.g. HP:0001154)</dd>
-     * <dt>absentTerms</dt>
+     * <dt>absent-term</dt>
      * <dd>a list of term IDs that are observed to be absent</dd>
+     * <dt>rejected-gene</dt>
+     * <dd>a list of gene IDs that were rejected and should be excluded from gene suggestion results</dd>
      * <dt>startPage</dt>
      * <dd>the start page from which to display the results, numbering starts from 1</dd>
-     * <dt>numResults</dt>
-     * <dd>get the number of results to display, must be an integer</dd>
+     * <dt>limit</dt>
+     * <dd>the number of results to display, must be an integer</dd>
      * <dt>reqNo</dt>
      * <dd>the request number, must be an integer</dd>
      * </dl>
      *
      * @return associated genes and counts data if successful, an error code otherwise
+     * @since 1.4 (modified)
      */
     @POST
     @Consumes(MediaType.APPLICATION_FORM_URLENCODED)

@@ -73,8 +73,7 @@ $xwiki.jsfx.use('js/scriptaculous/dragdrop.js')##
 #end
 #set ($discard = $columns.add('_actions'))
 ##  toggle-filters
-#set ($topFilters = $doc.getRenderedContent("(% class='xform' %)((( {{html clean='false'}}&lt;span class='buttonwrapper'&gt;&lt;a class='button toggle-filters' href='#'&gt;$services.localization.render('phenotips.allData.filterButton')&lt;/a&gt;&lt;/span&gt;{{/html}}
-{{velocity}}#__filters_display('xform'){{/velocity}})))", "xwiki/2.1"))
+#set ($topFilters = $doc.getRenderedContent("(% class='xform' %)((({{velocity}}#__filters_display('xform', true){{/velocity}})))", "xwiki/2.1"))
 #set ($options = {
   'className'         : $familyClassName,
   'translationPrefix' : 'family.livetable.',
@@ -85,7 +84,9 @@ $xwiki.jsfx.use('js/scriptaculous/dragdrop.js')##
   'defaultOrder'      : 'asc',
   'resultPage'        : 'PhenoTips.LiveTableResults'
 })
-#livetable('patients' $columns $columnsProperties $options)
+(% id="families-directory" class="entity-directory" %)(((##
+  #livetable('families' $columns $columnsProperties $options)
+)))
 {{/velocity}}</content>
   <object>
     <name>Families.WebHome</name>

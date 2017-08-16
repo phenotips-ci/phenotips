@@ -238,6 +238,30 @@
 #end
 #end
 
+#macro (__displayPropertyAsSelect $suggest_script)
+#if ($xcontext.action == 'edit' || $xcontext.action == 'inline')
+  {{html wiki=false clean=false}}
+    &lt;input name="xwiki-free-multiselect-suggest-script" type="hidden" value="$!escapetool.xml($suggest_script)"/&gt;&lt;input name="${prefix}${name}" type="hidden" value=""/&gt;
+  {{/html}}
+#end
+#macro (_fms__displayValue $v $counter)
+  #if($xcontext.action == 'edit' || $xcontext.action == 'inline')
+    {{html wiki=false clean=false}}
+      &lt;input class="xwiki-free-multiselect-value" type="text" size="30" name="${prefix}${name}" id="${prefix}${name}_${counter}" value="$!escapetool.xml($v)"/&gt;
+    {{/html}}
+  #else
+    $!{services.rendering.escape($v, $doc.syntax)}
+  #end
+#end
+(% class="xwiki-free-multiselect"%)
+#foreach ($v in $value)
+1. #_fms__displayValue($v ${foreach.count})
+#end
+#if ((!$value || $value.size() == 0) &amp;&amp; ($xcontext.action == 'edit' || $xcontext.action == 'inline'))
+1. #_fms__displayValue('' 1)
+#end
+#end
+
 ## =====================================================================
 ##
 ## "Tabelar" data associated with the patient report
@@ -310,7 +334,7 @@
 ## PHENOTYPE SUMMARY
 ##
 ##
-#macro (__phenotypeSummary_create $phenotypeSummary $hasSymptoms)
+#macro (__phenotypeSummary_create $phenotypesSummary $hasSymptoms)
   #set ($patient = $services.patients.get($doc.name))
   #set($qualifiers = $patient.getData('global-qualifiers'))
   #foreach ($q in ['global_age_of_onset', 'global_mode_of_inheritance'])
@@ -319,7 +343,7 @@
     #end
   #end
   #foreach ($f in $patient.features)
-    #if ("$!f.id" != '') 
+    #if ("$!f.id" != '')
       #set ($foreach.fterm = $services.vocabularies.resolveTerm($f.id))
       #if ($foreach.fterm)
         #set ($foreach.fname = $foreach.fterm.translatedName)
@@ -339,6 +363,19 @@
   #end
 
   #set ($hasSymptoms = ($phenotypesSummary.size() &gt; 0))
+#end
+
+## =====================================================================
+##
+## GENE SUMMARY
+##
+##
+#macro (__geneSummary_create $genesSummary)
+  #set ($patient = $services.patients.get($doc.name))
+  #set($genes = $patient.getData('genes'))
+  #foreach ($g in $genes)
+    #set ($discard = $genesSummary.add({"key" : $g.gene, "status" : $g.status}))
+  #end
 #end
 {{/velocity}}</content>
 </xwikidoc>
