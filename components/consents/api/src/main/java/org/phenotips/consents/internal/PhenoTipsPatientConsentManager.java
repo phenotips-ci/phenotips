@@ -33,12 +33,16 @@ import org.xwiki.model.EntityType;
 import org.xwiki.model.reference.DocumentReference;
 import org.xwiki.model.reference.DocumentReferenceResolver;
 import org.xwiki.model.reference.EntityReference;
+import org.xwiki.uiextension.UIExtensionManager;
+import org.xwiki.uiextension.UIExtension;
 
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
 import java.util.LinkedHashSet;
+import java.util.Map;
 import java.util.LinkedList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Set;
 
@@ -46,6 +50,9 @@ import javax.inject.Inject;
 import javax.inject.Named;
 import javax.inject.Provider;
 import javax.inject.Singleton;
+
+import org.xwiki.query.Query;
+import org.xwiki.query.QueryManager;
 
 import org.apache.commons.lang3.StringUtils;
 import org.json.JSONArray;
@@ -92,6 +99,13 @@ public class PhenoTipsPatientConsentManager implements ConsentManager, Initializ
 
     @Inject
     private TranslationManager translationManager;
+
+    @Inject
+    private QueryManager qm;
+
+    /** Lists the patient form fields. */
+    @Inject
+    private UIExtensionManager uixManager;
 
     private EntityReference consentReference =
         new EntityReference("PatientConsentConfiguration", EntityType.DOCUMENT, Constants.CODE_SPACE_REFERENCE);
@@ -163,10 +177,35 @@ public class PhenoTipsPatientConsentManager implements ConsentManager, Initializ
             boolean required = intToBool(xwikiConsent.getIntValue("required"));
             boolean affectsFields = intToBool(xwikiConsent.getIntValue("affectsFields"));
             List<String> formFields = null;
+            List<String> dataFields = null;
             if (affectsFields) {
+                dataFields = new LinkedList<>();
                 formFields = xwikiConsent.getListValue("fields");
+                // Data fields are found by finding the extension point based off the uix names from the form fields.
+                for (String uixName : formFields) {
+                    Query query = this.qm.createQuery("select distinct uix.extensionPointId from Document doc, doc.object(XWiki.UIExtensionClass) as uix where uix.name = :uixname", Query.XWQL);
+                    query.bindValue("uixname", uixName);
+                    List<String> results = query.execute();
+                    if (results.size() != 1) {
+                        this.logger.warn("There are {} extensions identified by {}", results.size(), uixName);
+                        if (results.size() == 0) {
+                           continue;
+                        }
+                    }
+                    String extensionPointId = results.get(0);
+                    // Get the Id from the extension point
+                    List<UIExtension> extensionObjects = this.uixManager.get(extensionPointId);
+                    for (UIExtension uix : extensionObjects) {
+                        Map<String, String> parameters = uix.getParameters();
+                        // Finds the correct UIExtension from the name and extension point
+                        if (parameters.containsKey("enabled") && parameters.get("enabled").equals("true") && parameters.containsKey("fields") && uixName.equals(uix.getId())) {
+                            // Separate the fields and add in each string to dataFields
+                                dataFields.addAll(Arrays.asList(parameters.get("fields").split("\\s*,\\s*")));
+                        }
+                    }
+                }
             }
-            return new DefaultConsent(id, label, description, required, formFields);
+            return new DefaultConsent(id, label, description, required, dataFields, formFields);
         } catch (Exception ex) {
             this.logger.error("A patient consent is improperly configured: {}", ex.getMessage());
         }
