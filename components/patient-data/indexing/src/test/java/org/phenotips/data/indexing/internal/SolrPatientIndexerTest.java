@@ -19,6 +19,7 @@ package org.phenotips.data.indexing.internal;
 
 import org.phenotips.components.ComponentManagerRegistry;
 import org.phenotips.data.Feature;
+import org.phenotips.data.Gene;
 import org.phenotips.data.Patient;
 import org.phenotips.data.PatientData;
 import org.phenotips.data.PatientRepository;
@@ -67,9 +68,7 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.mockito.Matchers;
 import org.mockito.Mock;
-import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
 import org.mockito.internal.matchers.CapturingMatcher;
 import org.slf4j.Logger;
@@ -93,12 +92,7 @@ public class SolrPatientIndexerTest
 {
     private static final String STATUS_KEY = "status";
 
-    private static final String STRATEGY_KEY = "strategy";
-
-    private static List<String> STATUS_VALUES = Arrays.asList("candidate", "rejected", "solved");
-
-    private static List<String> STRATEGY_VALUES = Arrays.asList("sequencing", "deletion", "familial_mutation",
-        "common_mutations");
+    private static final List<String> STATUS_VALUES = Arrays.asList("candidate", "rejected", "solved", "carrier");
 
     @Rule
     public MockitoComponentMockingRule<PatientIndexer> mocker =
@@ -157,13 +151,11 @@ public class SolrPatientIndexerTest
         XWiki x = mock(XWiki.class);
         when(context.getWiki()).thenReturn(x);
 
-        DocumentReference geneDocRef = new DocumentReference("wiki", "PhenoTips", "GeneClass");
-        XWikiDocument geneDoc = new XWikiDocument(geneDocRef);
-        when(Matchers.any(PhenoTipsGene.class).getGeneDoc()).thenReturn(geneDoc);
+        XWikiDocument geneDoc = mock(XWikiDocument.class);
+        when(x.getDocument(Gene.GENE_CLASS, context)).thenReturn(geneDoc);
         geneDoc.setNew(false);
-        XWikiDocument spy = Mockito.spy(geneDoc);
         BaseClass c = mock(BaseClass.class);
-        when(spy.getXClass()).thenReturn(c);
+        when(geneDoc.getXClass()).thenReturn(c);
         StaticListClass lc1 = mock(StaticListClass.class);
         when(c.get(STATUS_KEY)).thenReturn(lc1);
         when(lc1.getList(context)).thenReturn(STATUS_VALUES);

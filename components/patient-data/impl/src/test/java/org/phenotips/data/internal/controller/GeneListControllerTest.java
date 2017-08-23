@@ -18,6 +18,7 @@
 package org.phenotips.data.internal.controller;
 
 import org.phenotips.components.ComponentManagerRegistry;
+import org.phenotips.data.Gene;
 import org.phenotips.data.IndexedPatientData;
 import org.phenotips.data.Patient;
 import org.phenotips.data.PatientData;
@@ -48,7 +49,6 @@ import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
-import org.mockito.Matchers;
 import org.mockito.Mock;
 import org.mockito.Mockito;
 import org.mockito.MockitoAnnotations;
@@ -109,6 +109,11 @@ public class GeneListControllerTest
 
     private static final String JSON_OLD_SOLVED_GENE_KEY = "solved";
 
+    private static final List<String> STATUS_VALUES = Arrays.asList("candidate", "rejected", "solved", "carrier");
+
+    private static final List<String> STRATEGY_VALUES = Arrays.asList("sequencing", "deletion", "familial_mutation",
+        "common_mutations");
+
     @Rule
     public MockitoComponentMockingRule<PatientDataController<List<PhenoTipsGene>>> mocker =
         new MockitoComponentMockingRule<PatientDataController<List<PhenoTipsGene>>>(GeneListController.class);
@@ -139,11 +144,6 @@ public class GeneListControllerTest
 
     private List<BaseObject> geneXWikiObjects;
 
-    private static List<String> STATUS_VALUES = Arrays.asList("candidate", "rejected", "solved");
-
-    private static List<String> STRATEGY_VALUES = Arrays.asList("sequencing", "deletion", "familial_mutation",
-        "common_mutations");
-
     @Before
     public void setUp() throws Exception
     {
@@ -164,17 +164,15 @@ public class GeneListControllerTest
         XWiki x = mock(XWiki.class);
         when(context.getWiki()).thenReturn(x);
 
-        DocumentReference geneDocRef = new DocumentReference("wiki", "PhenoTips", "GeneClass");
-        XWikiDocument geneDoc = new XWikiDocument(geneDocRef);
-        when(Matchers.any(PhenoTipsGene.class).getGeneDoc()).thenReturn(geneDoc);
+        XWikiDocument geneDoc = mock(XWikiDocument.class);
+        when(x.getDocument(Gene.GENE_CLASS, context)).thenReturn(geneDoc);
         geneDoc.setNew(false);
-        XWikiDocument spy = Mockito.spy(geneDoc);
         BaseClass c = mock(BaseClass.class);
-        when(spy.getXClass()).thenReturn(c);
+        when(geneDoc.getXClass()).thenReturn(c);
         StaticListClass lc1 = mock(StaticListClass.class);
         StaticListClass lc2 = mock(StaticListClass.class);
         when(c.get(STATUS_KEY)).thenReturn(lc1);
-        when(c.get(STRATEGY_KEY)).thenReturn(lc1);
+        when(c.get(STRATEGY_KEY)).thenReturn(lc2);
         when(lc1.getList(context)).thenReturn(STATUS_VALUES);
         when(lc2.getList(context)).thenReturn(STRATEGY_VALUES);
 
@@ -200,17 +198,17 @@ public class GeneListControllerTest
             doReturn(geneString).when(gene).getField(GENE_KEY);
 
             BaseStringProperty statusString = mock(BaseStringProperty.class);
-            doReturn("status" + i).when(statusString).getValue();
+            doReturn(STATUS_VALUES.get(i)).when(statusString).getValue();
             doReturn(statusString).when(gene).getField(STATUS_KEY);
+
+            StringListProperty strategyString = mock(StringListProperty.class);
+            doReturn(STRATEGY_VALUES.get(i)).when(strategyString).getTextValue();
+            doReturn(Arrays.asList("strategy" + i)).when(strategyString).getList();
+            doReturn(strategyString).when(gene).getField(STRATEGY_KEY);
 
             BaseStringProperty commentString = mock(BaseStringProperty.class);
             doReturn("comment" + i).when(commentString).getValue();
             doReturn(commentString).when(gene).getField(COMMENTS_KEY);
-
-            StringListProperty strategyString = mock(StringListProperty.class);
-            doReturn("strategy" + i).when(strategyString).getTextValue();
-            doReturn(Arrays.asList("strategy" + i)).when(strategyString).getList();
-            doReturn(strategyString).when(gene).getField(STRATEGY_KEY);
 
             doReturn(Arrays.asList(geneString, statusString, commentString, strategyString)).when(gene).getFieldList();
         }
@@ -222,9 +220,9 @@ public class GeneListControllerTest
         for (int i = 0; i < 3; ++i) {
             PhenoTipsGene item = result.getValue().get(i);
             Assert.assertEquals("gene" + i, item.getName());
-            Assert.assertEquals(null, item.getStatus());
+            Assert.assertEquals(STATUS_VALUES.get(i), item.getStatus());
+            Assert.assertEquals(STRATEGY_VALUES.get(i), item.getStrategy());
             Assert.assertEquals("comment" + i, item.getComment());
-            Assert.assertEquals("strategy" + i, item.getStrategy());
         }
     }
 
@@ -379,7 +377,7 @@ public class GeneListControllerTest
     {
         List<PhenoTipsGene> internalList = new LinkedList<>();
 
-        PhenoTipsGene item = new PhenoTipsGene(null, GENE_VALUE, "Status", "Strategy", "Comment");
+        PhenoTipsGene item = new PhenoTipsGene(null, GENE_VALUE, "Status", "familial_mutation", "Comment");
         internalList.add(item);
 
         PatientData<List<PhenoTipsGene>> patientData = new SimpleValuePatientData<>(CONTROLLER_NAME, internalList);
@@ -396,7 +394,7 @@ public class GeneListControllerTest
         Assert.assertEquals(GENE_VALUE, result.get(JSON_GENE_SYMBOL));
         Assert.assertEquals(GENE_VALUE, result.get(JSON_GENE_ID));
         Assert.assertEquals(null, result.opt(JSON_STATUS_KEY));
-        String[] strategyArray = { "strategy" };
+        String[] strategyArray = { "familial_mutation" };
         Assert.assertEquals(new JSONArray(strategyArray).get(0), ((JSONArray) result.get(JSON_STRATEGY_KEY)).get(0));
         Assert.assertEquals("Comment", result.get(JSON_COMMENTS_KEY));
         // id, gene, strategy, comment

@@ -65,9 +65,9 @@ public class PhenoTipsGene implements Gene
 
     protected static final String SYMBOL_PROPERTY_NAME = "symbol";
 
-    protected static List<String> STATUS_VALUES = new LinkedList<String>();
+    protected static List<String> statusValues = new LinkedList<String>();
 
-    protected static List<String> STRATEGY_VALUES = new LinkedList<String>();
+    protected static List<String> strategyValues = new LinkedList<String>();
 
     /** Logging helper object. */
     protected final Logger logger = LoggerFactory.getLogger(PhenoTipsGene.class);
@@ -108,7 +108,7 @@ public class PhenoTipsGene implements Gene
         if (StringUtils.isBlank(id) && StringUtils.isBlank(name)) {
             throw new IllegalArgumentException();
         }
-        if (STATUS_VALUES.size() == 0 || STRATEGY_VALUES.size() == 0) {
+        if (statusValues.size() == 0 || strategyValues.size() == 0) {
             getProperties();
         }
         // gene ID is either the "id" field, or, if missing, the "gene" field
@@ -134,7 +134,7 @@ public class PhenoTipsGene implements Gene
         if (strategyArray != null) {
             String internalValue = "";
             for (Object value : strategyArray) {
-                if (STRATEGY_VALUES.contains(value)) {
+                if (strategyValues.contains(value)) {
                     internalValue += "|" + value;
                 }
             }
@@ -247,7 +247,7 @@ public class PhenoTipsGene implements Gene
      */
     public void setStatus(String status)
     {
-        if (StringUtils.isNotBlank(status) && STATUS_VALUES.contains(status.trim().toLowerCase())) {
+        if (StringUtils.isNotBlank(status) && statusValues.contains(status.trim().toLowerCase())) {
             this.status = status;
         }
     }
@@ -259,7 +259,7 @@ public class PhenoTipsGene implements Gene
      */
     public void setStrategy(String strategy)
     {
-        if (StringUtils.isNotBlank(strategy) && STRATEGY_VALUES.contains(status.trim().toLowerCase())) {
+        if (StringUtils.isNotBlank(strategy) && strategyValues.contains(strategy.trim().toLowerCase())) {
             this.strategy = strategy.trim().toLowerCase();
         }
     }
@@ -286,9 +286,9 @@ public class PhenoTipsGene implements Gene
         JSONObject geneJson = new JSONObject();
         geneJson.put(ID, this.id);
         geneJson.put(SYMBOL_KEY, this.getName());
-        setStringValueIfNotBlank(geneJson, COMMENTS_KEY, this.comment);
         setStringValueIfNotBlank(geneJson, STATUS_KEY, this.status);
         setArrayValueIfNotBlank(geneJson, STRATEGY_KEY, this.strategy);
+        setStringValueIfNotBlank(geneJson, COMMENTS_KEY, this.comment);
         return geneJson;
     }
 
@@ -344,16 +344,16 @@ public class PhenoTipsGene implements Gene
         StaticListClass statusProp = (StaticListClass) gene.get(STATUS_KEY);
         StaticListClass stategyProp = (StaticListClass) gene.get(STRATEGY_KEY);
         if (statusProp != null) {
-            STATUS_VALUES = statusProp.getList(this.context);
+            statusValues = statusProp.getList(this.context);
         }
-        if (statusProp != null) {
-            STRATEGY_VALUES = stategyProp.getList(this.context);
+        if (stategyProp != null) {
+            strategyValues = stategyProp.getList(this.context);
         }
     }
 
     /**
      * Get gene XClass document.
-     * 
+     *
      * @return gene XClass document
      */
     public XWikiDocument getGeneDoc()
@@ -363,11 +363,9 @@ public class PhenoTipsGene implements Gene
             xcontextProvider =
                 ComponentManagerRegistry.getContextComponentManager().getInstance(XWikiContext.TYPE_PROVIDER);
             this.context = xcontextProvider.get();
-            return this.context.getWiki().getDocument(Gene.GENE_CLASS, context);
+            return this.context.getWiki().getDocument(Gene.GENE_CLASS, this.context);
         } catch (Exception ex) {
             return null;
         }
-
     }
-
 }
