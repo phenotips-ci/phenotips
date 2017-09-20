@@ -28,6 +28,10 @@
   <artifactId>users-api</artifactId>
   <name>PhenoTips - Users and Groups - Java APIs</name>
 
+  <properties>
+    <coverage.instructionRatio>0.82</coverage.instructionRatio>
+  </properties>
+
   <dependencies>
     <dependency>
       <groupId>org.xwiki.commons</groupId>

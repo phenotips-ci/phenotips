@@ -29,6 +29,8 @@ import org.xwiki.model.reference.EntityReference;
 
 import java.util.Collection;
 
+import com.xpn.xwiki.api.Document;
+
 /**
  * @version $Id$
  */
@@ -60,4 +62,6 @@ public interface PatientAccessHelper
     boolean removeCollaborator(Patient patient, Collaborator collaborator);
 
     String getType(EntityReference userOrGroup);
+
+    Document getDocument(EntityReference userOrGroup);
 }

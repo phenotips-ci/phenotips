@@ -54,6 +54,7 @@ import org.slf4j.Logger;
 import com.xpn.xwiki.XWiki;
 import com.xpn.xwiki.XWikiContext;
 import com.xpn.xwiki.XWikiException;
+import com.xpn.xwiki.api.Document;
 import com.xpn.xwiki.doc.XWikiDocument;
 import com.xpn.xwiki.objects.BaseObject;
 import com.xpn.xwiki.user.api.XWikiGroupService;
@@ -373,6 +374,22 @@ public class DefaultPatientAccessHelper implements PatientAccessHelper
             this.logger.warn("Failed to determine user type: {}", ex.getMessage(), ex);
         }
         return "unknown";
+    }
+
+    @Override
+    public Document getDocument(EntityReference userOrGroup)
+    {
+        if (userOrGroup == null) {
+            return null;
+        }
+        try {
+            XWikiDocument doc = (XWikiDocument) this.bridge.getDocument((DocumentReference) userOrGroup);
+            XWikiContext xcontext = getXWikiContext();
+            return doc.newDocument(xcontext);
+        } catch (Exception ex) {
+            this.logger.warn("Failed to get user or group document: {}", ex.getMessage(), ex);
+        }
+        return null;
     }
 
     private AccessLevel getAccessLevel(EntityReference userOrGroup, EntityReference owner,

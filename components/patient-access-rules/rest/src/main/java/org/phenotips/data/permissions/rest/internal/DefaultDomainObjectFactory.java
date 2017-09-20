@@ -23,21 +23,29 @@ import org.phenotips.data.permissions.Owner;
 import org.phenotips.data.permissions.PatientAccess;
 import org.phenotips.data.permissions.PermissionsManager;
 import org.phenotips.data.permissions.Visibility;
+import org.phenotips.data.permissions.internal.PatientAccessHelper;
 import org.phenotips.data.permissions.rest.CollaboratorResource;
 import org.phenotips.data.permissions.rest.DomainObjectFactory;
 import org.phenotips.data.permissions.rest.model.CollaboratorRepresentation;
 import org.phenotips.data.permissions.rest.model.CollaboratorsRepresentation;
 import org.phenotips.data.permissions.rest.model.OwnerRepresentation;
+import org.phenotips.data.permissions.rest.model.PrincipalRepresentation;
+import org.phenotips.data.permissions.rest.model.PrincipalsRepresentation;
 import org.phenotips.data.permissions.rest.model.UserSummary;
 import org.phenotips.data.permissions.rest.model.VisibilityRepresentation;
+import org.phenotips.groups.GroupManager;
 import org.phenotips.rest.Autolinker;
 
 import org.xwiki.component.annotation.Component;
+import org.xwiki.model.reference.DocumentReferenceResolver;
 import org.xwiki.model.reference.EntityReference;
 import org.xwiki.model.reference.EntityReferenceSerializer;
 import org.xwiki.stability.Unstable;
 
 import java.util.Collection;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
 
 import javax.inject.Inject;
 import javax.inject.Named;
@@ -47,6 +55,9 @@ import javax.ws.rs.core.UriInfo;
 
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
+
+import com.xpn.xwiki.api.Document;
+import com.xpn.xwiki.doc.XWikiDocument;
 
 /**
  * Default implementation of {@link DomainObjectFactory}.
@@ -71,6 +82,16 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory
 
     @Inject
     private Provider<Autolinker> autolinker;
+
+    @Inject
+    @Named("userOrGroup")
+    private DocumentReferenceResolver<String> userOrGroupResolver;
+
+    @Inject
+    private GroupManager groupManager;
+
+    @Inject
+    private PatientAccessHelper helper;
 
     @Override
     public OwnerRepresentation createOwnerRepresentation(Patient patient)
@@ -128,10 +149,10 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory
 
         CollaboratorsRepresentation result = new CollaboratorsRepresentation();
         for (Collaborator collaborator : collaborators) {
-            CollaboratorRepresentation collaboratorObject =
-                this.createCollaboratorRepresentation(patientAccess, collaborator);
+            CollaboratorRepresentation collaboratorObject = this.createCollaboratorRepresentation(collaborator);
 
-            collaboratorObject.withLinks(this.autolinker.get().forSecondaryResource(CollaboratorResource.class, uriInfo)
+            collaboratorObject.withLinks(this.autolinker.get()
+                .forSecondaryResource(CollaboratorResource.class, uriInfo)
                 .withExtraParameters("collaborator-id", this.entitySerializer.serialize(collaborator.getUser()))
                 .withGrantedRight(patientAccess.getAccessLevel().getGrantedRight())
                 .build());
@@ -143,18 +164,92 @@ public class DefaultDomainObjectFactory implements DomainObjectFactory
     }
 
     @Override
-    public CollaboratorRepresentation createCollaboratorRepresentation(Patient patient, Collaborator collaborator)
-    {
-        PatientAccess patientAccess = this.manager.getPatientAccess(patient);
-        return this.createCollaboratorRepresentation(patientAccess, collaborator);
-    }
-
-    private CollaboratorRepresentation createCollaboratorRepresentation(PatientAccess patientAccess,
-        Collaborator collaborator)
+    public CollaboratorRepresentation createCollaboratorRepresentation(Collaborator collaborator)
     {
         CollaboratorRepresentation result = this.loadUserSummary(
             new CollaboratorRepresentation(), collaborator.getUser(), collaborator.getType());
         result.withLevel(collaborator.getAccessLevel().getName());
+        return result;
+    }
+
+    @Override
+    public PrincipalsRepresentation createPrincipalsRepresentation(Patient patient, UriInfo uriInfo)
+    {
+        PrincipalsRepresentation result = new PrincipalsRepresentation();
+
+        PatientAccess patientAccess = this.manager.getPatientAccess(patient);
+
+        Set<String> addedPrincipals = new LinkedHashSet<>();
+
+        Owner owner = patientAccess.getOwner();
+        Document doc = this.helper.getDocument(owner.getUser());
+        PrincipalRepresentation principal = this.createPrincipalRepresentation(owner.getUser(),
+            owner.getType(), "manage", "owner", "", doc.getURL());
+        result.withPrincipals(principal);
+        addedPrincipals.add(owner.getUsername());
+
+        if (owner.isGroup()) {
+            fetchGroupMembers(addedPrincipals, result, principal.getId(), principal.getName(), "manage", "owner");
+        }
+
+        // fetchAdminUsers(addedPrincipals, result);
+
+        Collection<Collaborator> collaborators = patientAccess.getCollaborators();
+        for (Collaborator collaborator : collaborators) {
+            if (addedPrincipals.contains(collaborator.getUsername())) {
+                continue;
+            }
+            Document collaboratorDoc = this.helper.getDocument(collaborator.getUser());
+            PrincipalRepresentation principalObject = this.createPrincipalRepresentation(collaborator.getUser(),
+                collaborator.getType(), collaborator.getAccessLevel().getName(), "collaborator", "",
+                collaboratorDoc.getURL());
+            result.withPrincipals(principalObject);
+            addedPrincipals.add(collaborator.getUsername());
+
+            if (collaborator.isGroup()) {
+                fetchGroupMembers(addedPrincipals, result, principalObject.getId(), principalObject.getName(),
+                    principalObject.getLevel(),
+                    "collaborator");
+            }
+        }
+
+        return result;
+    }
+
+    private void fetchAdminUsers(Set<String> addedPrincipals, PrincipalsRepresentation result)
+    {
+        List<XWikiDocument> admins = this.groupManager.getAllAdminUsers();
+        for (XWikiDocument admin : admins) {
+
+        }
+    }
+
+    private void fetchGroupMembers(Set<String> addedPrincipals, PrincipalsRepresentation result, String groupId,
+        String groupName,
+        String level, String role)
+    {
+        Set<Document> groupMemberDocs = this.groupManager.getAllMembersForGroup(groupId);
+
+        for (Document member : groupMemberDocs) {
+            if (addedPrincipals.contains(member.getName())) {
+                continue;
+            }
+            EntityReference ref = member.getDocument().getDocumentReference();
+            PrincipalRepresentation object = this.createPrincipalRepresentation(ref,
+                this.helper.getType(ref), level, role, groupName, member.getURL());
+            result.withPrincipals(object);
+            addedPrincipals.add(ref.getName());
+        }
+    }
+
+    private PrincipalRepresentation createPrincipalRepresentation(EntityReference reference, String type, String level,
+        String role, String group, String url)
+    {
+        PrincipalRepresentation result = this.loadUserSummary(new PrincipalRepresentation(), reference, type);
+        result.withLevel(level);
+        result.withRole(role);
+        result.withGroup(group);
+        result.withUrl(url);
         return result;
     }
 }

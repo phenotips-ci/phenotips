@@ -29,7 +29,7 @@
   <name>PhenoTips - Patient access rules - REST services</name>
 
   <properties>
-    <!-- Fixme. Coverage. -->
+    <checkstyle.suppressions.location>${basedir}/src/checkstyle/checkstyle-suppressions.xml</checkstyle.suppressions.location>
     <coverage.instructionRatio>0.0</coverage.instructionRatio>
   </properties>
 
@@ -72,6 +72,11 @@
     <dependency>
       <groupId>${project.groupId}</groupId>
       <artifactId>patient-data-api</artifactId>
+      <version>${project.version}</version>
+    </dependency>
+    <dependency>
+      <groupId>${project.groupId}</groupId>
+      <artifactId>users-api</artifactId>
       <version>${project.version}</version>
     </dependency>
     <dependency>

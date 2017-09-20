@@ -23,6 +23,7 @@ import org.phenotips.data.permissions.Visibility;
 import org.phenotips.data.permissions.rest.model.CollaboratorRepresentation;
 import org.phenotips.data.permissions.rest.model.CollaboratorsRepresentation;
 import org.phenotips.data.permissions.rest.model.OwnerRepresentation;
+import org.phenotips.data.permissions.rest.model.PrincipalsRepresentation;
 import org.phenotips.data.permissions.rest.model.VisibilityRepresentation;
 
 import org.xwiki.component.annotation.Role;
@@ -72,7 +73,7 @@ public interface DomainObjectFactory
     /**
      * Create the REST representation for a list of {@link Collaborator}s, starting from a {@link Patient} instance.
      *
-     * @param patient the (list of) collaborators that are attached to this patient record
+     * @param patient the (list of) collaborators that are attached to
      * @param uriInfo the URI information for the rest system and the current request
      * @return a summary of each collaborator on the patient record, or {@code null} if the current user doesn't have
      *         access to the patient or accessing the patient data fails.
@@ -83,10 +84,19 @@ public interface DomainObjectFactory
      * Create the REST representation for summary of a {@link Collaborator} instance, starting from a {@link Patient}
      * and {@link Collaborator} instances.
      *
-     * @param patient to whom the collaborator is attached
      * @param collaborator that is to be represented
      * @return a summary of the collaborator, or {@code null} if the current user doesn't have access to the patient or
      *         accessing the patient data fails.
      */
-    CollaboratorRepresentation createCollaboratorRepresentation(Patient patient, Collaborator collaborator);
+    CollaboratorRepresentation createCollaboratorRepresentation(Collaborator collaborator);
+
+    /**
+     * Create the REST representation for a list of principals that have access to the patient record.
+     *
+     * @param patient whose accessers are of interest
+     * @param uriInfo the URI information for the rest system and the current request
+     * @return a summary of each principal that has access to the patient record, or {@code null} if the current user
+     *         doesn't have access to the patient or accessing the patient data fails.
+     */
+    PrincipalsRepresentation createPrincipalsRepresentation(Patient patient, UriInfo uriInfo);
 }
