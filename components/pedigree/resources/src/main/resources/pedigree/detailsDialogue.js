@@ -138,7 +138,8 @@ define([], function() {
         withTextBox: function(collapsible, options) {
             var inputSourceClass = options && options.inputSourceClass || "";
             var spanElem = new Element('span');
-            spanElem.innerHTML = '<textarea class="qualifier-notes '+inputSourceClass+'" name="' + this._dataName + '">';
+            spanElem.innerHTML = '<textarea class="qualifier-notes '+inputSourceClass+'" name="' + this._dataName + '">'
+              + '</textarea>';
             spanElem._getValue = this._getTextboxValueFx(spanElem);
             spanElem._setValue = this._setTextboxValueFx(spanElem, options.storedToDisplayedMapper, collapsible);
             spanElem._addValue = this._addTextboxValueFx(spanElem, options.qualifierName, options.displayedToStoredMapper);

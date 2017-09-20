@@ -381,6 +381,10 @@ define([
         _addOnTermSelectListener: function() {
             var _this = this;
             var statusInput = this._qualifiersContainer.down('input.term-status');
+            // IE fix.
+            statusInput.observe('click', function(event) {
+                event.stopPropagation();
+            });
             statusInput.observe('change', function(event) {
                 event.stop();
                 if (statusInput.checked) {
@@ -460,16 +464,15 @@ define([
                     if (_this._crtFocus) {
                         if (_this._crtFocus !== summaryItem) {
                             _this._blur(_this._crtFocus);
-                            _this._crtFocus = summaryItem;
-                            _this._focus(_this._crtFocus);
+                            _this._crtFocus = summaryItem || null;
+                            summaryItem && _this._focus(_this._crtFocus);
                         }
                     } else {
-                        _this._crtFocus = summaryItem;
-                        _this._focus(_this._crtFocus);
+                        _this._crtFocus = summaryItem || null;
+                        summaryItem && _this._focus(_this._crtFocus);
                     }
                 } else {
-                    if (_this._crtFocus && ('term-status' === !event.target.className || (!clickedDialogueHolder
-                        || _this._dialogueHolder.up('table') !== clickedDialogueHolder.up('table')))) {
+                    if (_this._crtFocus && ('term-status' !== event.target.className)) {
                         // Blur anything in focus.
                         _this._blur(_this._crtFocus);
                         _this._crtFocus = null;
