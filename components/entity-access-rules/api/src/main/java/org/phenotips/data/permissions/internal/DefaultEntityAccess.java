@@ -20,7 +20,6 @@ package org.phenotips.data.permissions.internal;
 import org.phenotips.data.permissions.AccessLevel;
 import org.phenotips.data.permissions.Collaborator;
 import org.phenotips.data.permissions.EntityAccess;
-import org.phenotips.data.permissions.EntityPermissionsManager;
 import org.phenotips.data.permissions.Owner;
 import org.phenotips.data.permissions.Visibility;
 import org.phenotips.entities.PrimaryEntity;
@@ -29,23 +28,38 @@ import org.xwiki.model.reference.DocumentReference;
 import org.xwiki.model.reference.EntityReference;
 
 import java.util.Collection;
+import java.util.Collections;
+
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * @version $Id$
  */
 public class DefaultEntityAccess implements EntityAccess
 {
+    private static final String OWNER = "owner";
+
+    private static final String NONE = "none";
+
     private final PrimaryEntity entity;
 
     private final EntityAccessHelper helper;
 
-    private final EntityPermissionsManager manager;
+    private final EntityAccessManager accessManager;
 
-    public DefaultEntityAccess(PrimaryEntity entity, EntityAccessHelper helper, EntityPermissionsManager manager)
+    private final EntityVisibilityManager visibilityManager;
+
+    public DefaultEntityAccess(
+        @Nullable final PrimaryEntity entity,
+        @Nonnull final EntityAccessHelper helper,
+        @Nonnull final EntityAccessManager accessManager,
+        @Nonnull final EntityVisibilityManager visibilityManager)
     {
         this.entity = entity;
         this.helper = helper;
-        this.manager = manager;
+        this.accessManager = accessManager;
+        this.visibilityManager = visibilityManager;
     }
 
     @Override
@@ -57,7 +71,7 @@ public class DefaultEntityAccess implements EntityAccess
     @Override
     public Owner getOwner()
     {
-        return this.helper.getOwner(this.entity);
+        return this.entity == null ? null : this.accessManager.getOwner(this.entity);
     }
 
     @Override
@@ -69,56 +83,46 @@ public class DefaultEntityAccess implements EntityAccess
     @Override
     public boolean isOwner(EntityReference user)
     {
-        Owner owner = this.helper.getOwner(this.entity);
-        if (owner == null) {
-            return false;
-        }
-        if (user == null) {
-            return owner.getUser() == null;
-        }
-
-        return user.equals(owner.getUser());
+        return this.entity != null && user != null && user.equals(this.accessManager.getOwner(this.entity).getUser());
     }
 
     @Override
     public boolean setOwner(EntityReference userOrGroup)
     {
-        return this.helper.setOwner(this.entity, userOrGroup);
+        return this.entity != null && this.accessManager.setOwner(this.entity, userOrGroup);
     }
 
     @Override
     public Visibility getVisibility()
     {
-        Visibility result = this.helper.getVisibility(this.entity);
-        if (result == null) {
-            result = this.manager.resolveVisibility("private");
-        }
-        return result;
+        return this.entity == null
+            ? null
+            : this.visibilityManager.getVisibility(this.entity);
     }
 
     @Override
     public boolean setVisibility(Visibility newVisibility)
     {
-        return this.helper.setVisibility(this.entity, newVisibility);
+        return this.entity != null && this.visibilityManager.setVisibility(this.entity, newVisibility);
     }
 
     @Override
     public Collection<Collaborator> getCollaborators()
     {
-        return this.helper.getCollaborators(this.entity);
+        return this.entity == null ? Collections.emptyList() : this.accessManager.getCollaborators(this.entity);
     }
 
     @Override
     public boolean updateCollaborators(Collection<Collaborator> newCollaborators)
     {
-        return this.helper.setCollaborators(this.entity, newCollaborators);
+        return this.entity != null && this.accessManager.setCollaborators(this.entity, newCollaborators);
     }
 
     @Override
     public boolean addCollaborator(EntityReference user, AccessLevel access)
     {
         Collaborator collaborator = new DefaultCollaborator(user, access, null);
-        return this.helper.addCollaborator(this.entity, collaborator);
+        return this.entity != null && this.accessManager.addCollaborator(this.entity, collaborator);
     }
 
     @Override
@@ -131,7 +135,7 @@ public class DefaultEntityAccess implements EntityAccess
     @Override
     public boolean removeCollaborator(Collaborator collaborator)
     {
-        return this.helper.removeCollaborator(this.entity, collaborator);
+        return this.entity != null && this.accessManager.removeCollaborator(this.entity, collaborator);
     }
 
     @Override
@@ -143,16 +147,19 @@ public class DefaultEntityAccess implements EntityAccess
     @Override
     public AccessLevel getAccessLevel(EntityReference user)
     {
+        if (this.entity == null) {
+            return null;
+        }
         if (user == null) {
             if (this.getOwner().getUser() == null) {
-                return this.manager.resolveAccessLevel("owner");
+                return this.accessManager.resolveAccessLevel(OWNER);
             }
-            return this.manager.resolveAccessLevel("none");
+            return this.accessManager.resolveAccessLevel(NONE);
         }
-        if (isOwner(user) || this.helper.isAdministrator(this.entity, new DocumentReference(user))) {
-            return this.manager.resolveAccessLevel("owner");
+        if (isOwner(user) || this.accessManager.isAdministrator(this.entity, new DocumentReference(user))) {
+            return this.accessManager.resolveAccessLevel(OWNER);
         }
-        AccessLevel userAccess = this.helper.getAccessLevel(this.entity, user);
+        AccessLevel userAccess = this.accessManager.getAccessLevel(this.entity, user);
         AccessLevel defaultAccess = getVisibility().getDefaultAccessLevel();
         if (userAccess.compareTo(defaultAccess) > 0) {
             return userAccess;

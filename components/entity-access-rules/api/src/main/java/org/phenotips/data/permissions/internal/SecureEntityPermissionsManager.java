@@ -78,6 +78,12 @@ public class SecureEntityPermissionsManager implements EntityPermissionsManager
     }
 
     @Override
+    public Collection<AccessLevel> listAllAccessLevels()
+    {
+        return this.internalService.listAllAccessLevels();
+    }
+
+    @Override
     public AccessLevel resolveAccessLevel(String name)
     {
         return this.internalService.resolveAccessLevel(name);
