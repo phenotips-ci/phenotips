@@ -83,7 +83,16 @@ public class DefaultEntityAccess implements EntityAccess
     @Override
     public boolean isOwner(EntityReference user)
     {
-        return this.entity != null && user != null && user.equals(this.accessManager.getOwner(this.entity).getUser());
+        if (this.entity == null) {
+            return false;
+        }
+        // Owner is never null.
+        Owner owner = this.accessManager.getOwner(this.entity);
+        if (user == null) {
+            return owner.getUser() == null;
+        }
+
+        return user.equals(owner.getUser());
     }
 
     @Override
