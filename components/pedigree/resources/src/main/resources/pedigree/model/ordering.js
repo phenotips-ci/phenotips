@@ -10,6 +10,33 @@ define([
         // TODO: verify validity?
     };
 
+    Ordering.createOrdering = function(vOrder, ranks) {
+        if (vOrder.length != ranks.length) {
+            throw "Can not create ordering since the number of positions and nodes does not match";
+        }
+
+        var maxRank = Math.max.apply(null, ranks)
+        var order = [];
+        for (var r = 0; r <= maxRank; r++) {
+            order[r] = [];
+        }
+
+        // fill in order 2d array which represents orders-per-rank based on given order-per-vertex 1D array
+        for (var i = 0; i < vOrder.length; i++) {
+            if (order[ranks[i]][vOrder[i]] !== undefined) {
+                throw "Some nodes have the same generation (" +  ranks[i] + ") and same order (" + vOrder[i] + ")";
+            }
+            order[ranks[i]][vOrder[i]] = i;
+        }
+
+        // remove gaps on each rank
+        for (var r = 0; r <= maxRank; r++) {
+            order[r] = order[r].filter(function(v){return v !== undefined})
+        }
+
+        return new Ordering(order, vOrder);
+    };
+
     Ordering.prototype = {
 
         serialize: function() {
