@@ -21,8 +21,8 @@ define([
          *
          * @return Serialization data for the entire graph
          */
-        serialize: function() {
-            var jsonObject = editor.getGraph().toJSONObject();
+        serialize: function(skipUpdateJSONFromInternal) {
+            var jsonObject = editor.getGraph().toJSONObject(skipUpdateJSONFromInternal);
 
             jsonObject["settings"] = editor.getView().getSettings();
 
@@ -30,44 +30,25 @@ define([
         },
 
         createGraphFromSerializedData: function(JSONString, noUndo, centerAroundProband, callbackWhenDataLoaded, dataSource) {
-            console.log("---- load: parsing data ----");
-            document.fire("pedigree:load:start");
-
-            try {
-                var jsonObject = JSON.parse(JSONString);
-
-                // load the graph model of the pedigree & node data
-                var changeSet = editor.getGraph().fromJSONObject(jsonObject);
-
-                // load/process metadata such as pedigree options and color choices
-                if (jsonObject.hasOwnProperty("settings")) {
-                    editor.getView().loadSettings(jsonObject.settings);
-                }
-            }
-            catch(err)
-            {
-                console.log("ERROR loading pedigree: " + err);
-                alert("Error loading pedigree");
-                document.fire("pedigree:load:finish");
-
-                // if there is no pedigree and import was used to initialize a pedigree need to display the import dialogue again
-                if (!editor.pedigreeExists()) {
-                    this.showInitializeDialogue();
-                }
-                return;
-            }
-
-            this._finalizeCreateGraph("pedigreeLoaded", changeSet, noUndo, centerAroundProband, callbackWhenDataLoaded, dataSource);
+            this.createGraphFromImportData(JSONString, "phenotipsJSON", null, noUndo, centerAroundProband, dataSource, "pedigreeLoaded", callbackWhenDataLoaded);
         },
 
-        createGraphFromImportData: function(importString, importType, importOptions, noUndo, centerAroundProband, dataSource) {
-            console.log("---- import: parsing data ----");
+        createGraphFromImportData: function(importString, importType, importOptions, noUndo, centerAroundProband, dataSource, eventName, callbackWhenDataLoaded) {
+            console.log("---- load/import: parsing data ----");
             document.fire("pedigree:load:start");
 
             try {
                 var changeSet = editor.getGraph().fromImport(importString, importType, importOptions);
                 if (changeSet == null) {
                     throw "unable to create a pedigree from imported data";
+                }
+
+                if (importType == "phenotipsJSON") {
+                    // load/process metadata such as pedigree options and color choices (which is an extension of top of base pedigree)
+                    var jsonObject = JSON.parse(importString);
+                    if (jsonObject.hasOwnProperty("settings")) {
+                        editor.getView().loadSettings(jsonObject.settings);
+                    }
                 }
             }
             catch(err)
@@ -78,12 +59,15 @@ define([
 
                 // if there is no pedigree and import was used to initialize a pedigree need to display the import dialogue again
                 if (!editor.pedigreeExists()) {
-                    this.showInitializeDialogue(true /* go to import tab */);
+                    this.initializeNewPedigree(eventName && (eventName != "pedigreeLoaded") /* go to import tab if the operation was an import*/);
                 }
                 return;
             }
 
-            this._finalizeCreateGraph("pedigreeImported", changeSet, noUndo, centerAroundProband, null /* no callback */, dataSource);
+            if (!eventName) {
+                eventName = "pedigreeImported";
+            }
+            this._finalizeCreateGraph(eventName, changeSet, noUndo, centerAroundProband, (callbackWhenDataLoaded ? callbackWhenDataLoaded : null), dataSource);
         },
 
         // common code for pedigree creation called after the actual pedigree has been initialized using whatever input data
@@ -91,8 +75,10 @@ define([
 
             var _this = this;
 
+            // assigns node properties, either using loaded patient JSONs, or stored "raw JSON"s
             var finalizeCreation = function(loadedPatientData) {
 
+                // 1. for nodes linked to PT patients, update stored "raw JSON"s with the loaded values
                 if (loadedPatientData !== null) {
                     var familyMemberIds = Object.keys(loadedPatientData);
 
@@ -123,25 +109,50 @@ define([
                             }
                             var nodeID = allLinkedNodes.patientToNodeMapping[patient];
 
-                            // TODO: check if data is correctly cleared on import
-
-                            // reuse some properties which are not currently saved into patient record
-                            // such as cancers and pedigree specific stuff
-                            patientJSONObject.pedigreeProperties = editor.getGraph().getNodePropertiesNotStoredInPatientProfile(nodeID);
-
-                            editor.getGraph().setNodeDataFromPhenotipsJSON( nodeID, patientJSONObject);
+                            editor.getGraph().setRawJSONProperties(nodeID, patientJSONObject);
                         }
                     }
-
-                    if (!noUndo && !editor.isReadOnlyMode()) {
-                        var JSONString = _this.serialize();
-                        editor.getUndoRedoManager().addState({"eventName": eventName}, null, JSONString);
-                    }
-
-                    // FIXME: load will set callbackWhenDataLoaded() to be actionStack.addSaveEvent(), effectively
-                    //        a) duplicating undo states and b) doing it for read-only pedigrees
-                    callbackWhenDataLoaded && callbackWhenDataLoaded();
                 }
+
+                // 2. for all node use stored "raw JSON" values to set pedigree properties
+                var unsupportedVersions = {};
+                var allPersonNodes = editor.getGraph().getAllPersonIDs();
+                for (var i = 0; i < allPersonNodes.length; i++) {
+                    var nodeID = allPersonNodes[i];
+
+                    var rawJSON = editor.getGraph().getRawJSONProperties(nodeID);
+
+                    editor.getGraph().setPersonNodeDataFromPhenotipsJSON(nodeID, rawJSON);
+
+                    // do some basic version checking
+                    if (rawJSON.hasOwnProperty("phenotips_version")
+                        && !PhenotipsJSON.isVersionSupported(rawJSON.phenotips_version)) {
+                        if (!unsupportedVersions.hasOwnProperty(rawJSON.phenotips_version)) {
+                            unsupportedVersions[rawJSON.phenotips_version] = [];
+                        }
+                        unsupportedVersions[rawJSON.phenotips_version].push(nodeID);
+                    }
+                }
+
+                if (!Helpers.isObjectEmpty(unsupportedVersions)) {
+                    var warningString = "Some of the versions of loaded Patient JSONs are not supported:";
+                    for (var version in unsupportedVersions) {
+                        if (unsupportedVersions.hasOwnProperty(version)) {
+                            warningString += "\nversion " + version;
+                        }
+                    }
+                    alert(warningString);
+                }
+
+                if (!noUndo && !editor.isReadOnlyMode()) {
+                    var JSONString = _this.serialize(false /* do not update rawJSONs from internal data - since it was just loaded */);
+                    editor.getUndoRedoManager().addState({"eventName": eventName}, null, JSONString);
+                }
+
+                // FIXME: load will set callbackWhenDataLoaded() to be actionStack.addSaveEvent(), effectively
+                //        a) duplicating undo states and b) doing it for read-only pedigrees
+                // TODO: investigate, may no longer be true
+                callbackWhenDataLoaded && callbackWhenDataLoaded();
 
                 if (editor.getView().applyChanges(changeSet, false)) {
                     editor.getWorkspace().adjustSizeToScreen();
@@ -319,37 +330,31 @@ define([
                     editor.getOkCancelDialogue().showCustomized(editor.getFamilyData().getWarningMessage(),"Attention: This pedigree contains sensitive information.", "OK", null);
                 }
 
-                try {
-                    var addSaveEventOnceLoaded = function() {
-                        // since we just loaded data from disk data in memory is equivalent to data on disk
-                        editor.getUndoRedoManager().addSaveEvent();
+                if (responseJSON.hasOwnProperty("pedigree")) {
+                    try {
+                        var addSaveEventOnceLoaded = function() {
+                            // since we just loaded data from disk data in memory is equivalent to data on disk
+                            editor.getUndoRedoManager().addSaveEvent();
+                        }
+
+                        // note: supporting only new full JSON format
+
+                        // TODO: update version updater to support new pedigree format, move all existing updates into a migrator
+                        // TODO: avoid unnecessary JSON -> string -> JSON conversions
+                        //var updatedJSONData = editor.getVersionUpdater().updateToCurrentVersion(JSON.stringify(responseJSON.pedigree));
+                        var updatedJSONData = JSON.stringify(responseJSON.pedigree);
+
+                        // if pedigree is misformatted createGraphFromSerializedData() may throw as well
+                        this.createGraphFromSerializedData(updatedJSONData, false, true, addSaveEventOnceLoaded, "familyPedigree");
+                        return;
+                    } catch (error) {
+                        console.log("[LOAD] error parsing pedigree JSON");
                     }
-
-                    // Auto-detect pedigree format: "internal" or "simpleJSON"
-                    if (!responseJSON.pedigree.hasOwnProperty("GG")
-                        && responseJSON.pedigree.hasOwnProperty("data")
-                        && Array.isArray(responseJSON.pedigree.data)) {
-                        // looks like SimpleJSON format
-                        this.createGraphFromImportData(JSON.stringify(responseJSON.pedigree.data), "simpleJSON", undefined,
-                                false, true, addSaveEventOnceLoaded, "familyPedigree");
-                    } else {
-                        // else: old internal format
-
-                        // run migrator from older versions
-                        // (some updates are done in JS, but eventually all are supposed to be moved to JAVA database migrators)
-                        var updatedJSONData = editor.getVersionUpdater().updateToCurrentVersion(JSON.stringify(responseJSON.pedigree));
-
-                        this.createGraphFromSerializedData(updatedJSONData,
-                                false, true, addSaveEventOnceLoaded, "familyPedigree");
-                    }
-                } catch (error) {
-                    console.log("[LOAD] error parsing pedigree JSON");
-                    this.initializeNewPedigree();
                 }
-            } else {
-                console.log("[LOAD] no pedigree defined, need to initialize from a template or import");
-                this.initializeNewPedigree();
             }
+
+            console.log("[LOAD] no pedigree defined, need to initialize from a template or import");
+            this.initializeNewPedigree();
         },
 
         initializeNewPedigree: function(showImportTab) {

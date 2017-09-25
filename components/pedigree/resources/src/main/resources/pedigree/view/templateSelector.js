@@ -94,7 +94,9 @@ define([
             //console.log("observe onTemplateSelected");
             this.close();
             if (pictureBox.type == 'internal') {
-                var updatedJSONData = editor.getVersionUpdater().updateToCurrentVersion(pictureBox.pedigreeData);
+                // TODO: see SaveLoadEngin._loadFromFamilyInfoJSON()
+                //var updatedJSONData = editor.getVersionUpdater().updateToCurrentVersion(pictureBox.pedigreeData);
+                var updatedJSONData = pictureBox.pedigreeData;
                 editor.getSaveLoadEngine().createGraphFromSerializedData(updatedJSONData, false /* add to undo stack */,
                                                                          true /* center around proband */, null /* no callback */, "template" /* data source */);
             } else if (pictureBox.type == 'simpleJSON') {
